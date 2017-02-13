@@ -1,0 +1,203 @@
+---
+title: "Assignment01"
+author: "Mohamed Elmoudni"
+date: "February 12, 2017"
+output: pdf_document
+---
+
+## Project 1 : 
+
+Requirements:
+
+The goal of this assignment is to help you build your intuition about recommender systems, with a basic soup to nuts implementation coded "from scratch." 
+ 
+Your task is to build a very basic recommender system, first by writing your own functions, then by replacing those functions with those provided in an R Package or a Python library (such as scikitlearn). 
+ 
+ - You should very briefly first describe the recommender system that you're going to build out from a business perspective, e.g. "This system recommends movies to users." 
+ 
+ - You can find a dataset, or build out your own toy dataset and load into (for example) an R or pandas dataframe, a Python dictionary or list of lists, (or other data structure of your choosing). 
+
+ - You can use either collaborative filtering, or a hybrid of content management and collaborative filtering.   
+
+ - You are encouraged to hand code at least your similarity function. 
+ - After you have built out your own code base, create an alternate version using packages or libraries.  Compare the results and performance. 
+
+ - You are also encouraged to think about how to best handle missing data. 
+ 
+ - Your code should be turned in an RMarkdown file or a Jupyter notebook, and posted to Github. You may work in a small group (2 or 3 people) on this assignment.  While you're never discouraged from adding features or advanced capabilities such as regularization and matrix factorization methods, it is not expected at this point in the course.   
+
+
+```{r}
+library(recommenderlab)
+library(reshape2)
+library(ggplot2)
+library(knitr)
+######################################
+
+# Read training file along with header
+dt<-read.csv("https://raw.githubusercontent.com/simonnyc/IS-643/master/Assignment01_data.csv", header=TRUE)
+
+#############
+# Data exploration
+
+
+# Just look at first few lines of this file
+kable(head(dt))
+
+```
+
+Data Exploration
+
+```{r}
+
+# Summary
+kable(summary(dt), caption ="Data Summary")
+
+#frequency table
+
+table(dt$Ratings)
+qplot(dt$Ratings, dt$User)
+
+qplot(dt$Ratings)
+
+#[head(sort(dt$Ratings,decreasing=TRUE), n = 5)]
+
+#head(dt[sort(dt$Ratings, decreasing=TRUE), ], 100)
+
+```
+
+
+Implementing Item based recommender systems, like user based collaborative filtering, requires two steps:
+
+1. Calculating Item similarities
+2. Predicting the targeted item rating for the targeted User.
+
+Step1: Calculating Item Similarity:
+we calculate the similarity between co-rated items. We use cosine similarity or pearson-similarity to compute the similarity between items. 
+The output for step is similarity matrix between Items.
+
+
+```{r, echo=FALSE}
+#step 1: item-similarity calculation co-rated items are considered and similarity between two items
+#are calculated using cosine similarity
+
+g<-acast(dt, User ~ Items, value.var = 'Ratings')
+#g[is.na(g)] = 0
+df<- data.frame(g)
+df$userno<- as.numeric(rownames(df))
+
+#re-arrange the columns
+library(dplyr)
+df <- df %>%
+  select(item_10:item_12, everything())
+
+df <- df %>%
+  select(item_1:item_9, everything())
+
+df <- df %>%
+  select(userno, everything())
+
+
+
+
+#install.packages("lsa")
+library(lsa)
+x = df[,2:ncol(df)]
+x[is.na(x)] = 0
+itemSimil = cosine(as.matrix(x))
+
+kable(itemSimil)
+
+```
+
+
+Step2: Predicting the targeted item rating for the targeted User 
+
+Recommending Top N items:
+Once all the non rated movies are predicted we recommend top N movies to a user Code for Item based collaborative filtering in R:
+
+```{r}
+
+
+userRecmd = function(userno)
+ {
+   #extract all the movies not rated by CHAN
+   userRatings = df[userno,]
+   non_rated_movies = list()
+   rated_movies = list()
+   for(i in 2:ncol(userRatings)){
+     if(is.na(userRatings[,i]))
+     {
+       non_rated_movies = c(non_rated_movies,colnames(userRatings)[i])
+     }
+     else
+     {
+       rated_movies = c(rated_movies,colnames(userRatings)[i])
+     }
+   }
+   non_rated_movies = unlist(non_rated_movies)
+   rated_movies = unlist(rated_movies)
+   #create weighted similarity for all the rated movies by user
+   non_rated_pred_score = list()
+   for(j in 1:length(non_rated_movies)){
+     temp_sum = 0
+     df2 = itemSimil[which(rownames(itemSimil)==non_rated_movies[j]),]
+     for(i in 1:length(rated_movies)){
+       temp_sum = temp_sum+ df2[which(names(df2)==rated_movies[i])]
+        }
+     weight_mat = df2*df[userno,2:7]
+     non_rated_pred_score = c(non_rated_pred_score,rowSums(weight_mat,na.rm=T)/temp_sum)
+     }
+   pred_rat_mat = as.data.frame(non_rated_pred_score)
+   names(pred_rat_mat) = non_rated_movies
+   for(k in 1:ncol(pred_rat_mat)){
+     df[userno,][which(names(df[userno,]) == names(pred_rat_mat)[k])] = pred_rat_mat[1,k]
+   }
+   return(df[userno,])
+ }
+```
+
+####  Recommend for User 10
+Now we will use the above to find a rating for user 10
+
+```{r}
+userRecmd(10)
+```
+
+
+```{r}
+################################## Mohamed Changes ####################################
+x = df[,2:ncol(dt)]
+#x[is.na(x)] = 0
+x<- as.matrix(x)
+x <- as(x, "realRatingMatrix")
+kable(as(x, "matrix"))
+
+rec=Recommender(x[1:nrow(x)],method="UBCF", param=list(normalize = "Z-score",method="Cosine", nn=12))
+rec2 <- predict(rec, x[1:nrow(x)])
+(as(rec2, "matrix")['10',])
+
+############################
+rec=Recommender(x[1:nrow(x)],method="UBCF", param=list(normalize = "Z-score",method="Jaccard", nn=5))
+rec2 <- predict(rec, x[1:nrow(x)])
+as(rec2, "matrix")['10',]
+############################
+rec=Recommender(x[1:nrow(x)],method="UBCF", param=list(normalize = "Z-score",method="Jaccard"))
+rec2 <- predict(rec, x[1:nrow(x)])
+as(rec2, "matrix")['10',]
+
+##################
+
+rec=Recommender(x[1:nrow(x)],method="IBCF", param=list(normalize = "Z-score",method="Cosine"))
+rec2 <- predict(rec, x[1:nrow(x)])
+as(rec2, "matrix")['10',]
+
+##################
+
+```
+
+
+
+
+
+
