@@ -121,10 +121,8 @@ kable(itemSimil)
 ```
 
 
-Step2: Predicting the targeted item rating for the targeted User 
+Step2: Predicting the targeted item rating for the targeted User using content based system
 
-Recommending Top N items:
-Once all the non rated movies are predicted we recommend top N movies to a user Code for Item based collaborative filtering in R:
 
 ```{r}
 ratings<- as.matrix(x)
@@ -148,14 +146,100 @@ userRecmd <- function(userno)
 ```
 
 ####  Recommend for User 10
-Now we will use the above to find a rating for user 10. 
-Following line predicts the ratings for 
+
+Following line predicts the missing ratings for User 10
 
 ```{r}
 userRecmd(10)
 ```
 
-Following lines predict the ratings for the user 10 but using built-in package :- RecommenderLab package.
+
+User defined function for user based collobarative filtering
+
+```{r}
+
+Recmd.UIB <- function(M, user, k)
+{
+  #M <- ratings
+  #user <- 'u10'
+  M[is.na(M)] <- 0
+  rowsums <- rowSums(M)
+  rowcounts <- apply(M,1,function(x) length(x[x>0]))
+  rowavg <- rowsums/rowcounts
+  for(r in 1:nrow(M))
+  {
+    for(c in 1:ncol(M))
+    {
+      if(M[r,c] >0 )
+      {
+        M[r,c] <- M[r,c] - rowavg[r]
+      }
+    }
+  }
+  
+  user.M <- M[user,]
+  if(is.element(0,user.M)==F) 
+  {
+    print('no missing ratings')
+    return()
+  }
+  
+  otherusers.M <- M[rownames(M)!=user,]
+  sim.M <- matrix(,nrow(otherusers.M))
+  rownames(sim.M) <- rownames(otherusers.M)
+  
+  for(r in 1:nrow(otherusers.M))
+  {
+    sim.user <- rownames(otherusers.M)[r]
+    sim.M[sim.user,1] <- cosine(user.M,otherusers.M[r,])
+  }
+  sim.M[is.na(sim.M)] <- -1
+  sim.M <- sim.M[order(-sim.M[,1]),,drop=F]
+  
+  non.rated.items <- names(user.M[user.M==0])
+  
+  #top k similar users who have rated the items not rated by the current user
+  if(k > nrow(sim.M)) 
+  {
+    k <- nrow(sim.M)
+  }
+  sim.user.k <- sim.M[1:k,,drop=F]
+  sim.user.k1 <- ratings[rownames(sim.user.k),non.rated.items,drop=F]
+  sim.user.k1 <- cbind(sim.user.k1,sim=sim.user.k)
+  colnames(sim.user.k1) <- c(non.rated.items,'sim')
+  sim.user.k2 <- matrix(,ncol=ncol(sim.user.k1))
+  for(r in 1:nrow(sim.user.k1))
+  {
+    v.temp <- sim.user.k1[r,,drop=F]
+    if(is.element(NA,v.temp)!=T)
+    {
+      sim.user.k2 <- rbind(sim.user.k2,v.temp)
+      
+    }
+  }
+  sim.user.k2 <- sim.user.k2[2:nrow(sim.user.k2),]
+  sim.user.k3 <- sim.user.k2[,1:ncol(sim.user.k2)-1]
+  sim.user.k4 <- sim.user.k2[,ncol(sim.user.k2),drop=F]
+  
+  v1 <- apply(sim.user.k3,2,function(x) sum(x*sim.user.k4)/sum(sim.user.k4))
+  return(v1)
+  
+  
+}
+
+
+```
+
+Prediction for same user 10 using User based collobarative filtering
+
+```{r}
+
+Recmd.UIB(ratings,'10',5)
+
+```
+
+
+Following lines predict the ratings for the user 10 using built-in package :- RecommenderLab package and using Item based collobarative filtering
 ```{r}
 
 m <- ratings
@@ -170,7 +254,25 @@ as(u, "list")
 
 ```
 
-The numbers are slightly off compared to our user defined functon but not by much.
+
+
+
+Following lines predict the ratings for the user 10 using built-in package :- RecommenderLab package and using User based collobarative filtering
+```{r}
+
+m <- ratings
+m[m==0] <- NA
+
+affinity.matrix<- as(m,"realRatingMatrix")
+Rec.model<-Recommender(affinity.matrix,method="UBCF", 
+                       param=list(normalize = "Z-score",method="Cosine"))
+
+u <- predict(Rec.model, affinity.matrix[10,], type="ratings")
+as(u, "list")
+
+```
+
+
 
 
 ```{r}
