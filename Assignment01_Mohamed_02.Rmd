@@ -117,35 +117,55 @@ Recommending Top N items:
 Once all the non rated movies are predicted we recommend top N movies to a user Code for Item based collaborative filtering in R:
 
 ```{r}
-
 ratings<- as.matrix(x)
 userRecmd <- function(userno)
 {
 
-userRatings <- ratings[userno,]
-#
+  userRatings <- ratings[userno,]
+  userRatings[userRatings==0] <- NA
+  #
+  
+  non_rated_items <- names(userRatings[is.na(userRatings)])
+  rated_items <- names(userRatings[!is.na(userRatings)])
+  m1 <- itemSimil[non_rated_items,]
+  v1 <- apply(m1,1,function(x) sum((x*ratings[userno,]),na.rm = T)/(sum(x[rated_items])))
+  #ratings[userno,names(v1)] <- v1
+  #
 
-non_rated_items <- names(userRatings[is.na(userRatings)])
-rated_items <- names(userRatings[!is.na(userRatings)])
-m1 <- itemSimil[non_rated_items,]
-v1 <- apply(m1,1,function(x) sum((x*ratings[userno,]),na.rm = T)/(sum(x[rated_items])))
-ratings[userno,names(v1)] <- v1
-#
-
-return(ratings[userno,])
+  return(v1)
 }
 
 ```
 
 ####  Recommend for User 10
-Now we will use the above to find a rating for user 10
+Now we will use the above to find a rating for user 10. 
+Following line predicts the ratings for 
 
 ```{r}
 userRecmd(10)
 ```
 
-str(x)
+Following lines predict the ratings for the user 10 but using built-in package :- RecommenderLab package.
 ```{r}
+
+m <- ratings
+m[m==0] <- NA
+
+affinity.matrix<- as(m,"realRatingMatrix")
+Rec.model<-Recommender(affinity.matrix,method="IBCF", 
+                       param=list(normalize = "Z-score",method="Cosine", n=5))
+
+u <- predict(Rec.model, affinity.matrix[10,], type="ratings")
+as(u, "list")
+
+```
+
+The numbers are slightly off compared to our user defined functon but not by much.
+
+
+```{r}
+
+
 ################################## Mohamed Changes 
 x = df[,2:ncol(df)]
 #x[is.na(x)] = 0
@@ -175,22 +195,6 @@ as(rec2, "matrix")['10',]
 ##################
 
 ```
-
-
-
-
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-
-
-
 
 
 
