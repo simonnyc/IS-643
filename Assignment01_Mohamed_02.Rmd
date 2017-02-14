@@ -26,6 +26,15 @@ Your task is to build a very basic recommender system, first by writing your own
  
  - Your code should be turned in an RMarkdown file or a Jupyter notebook, and posted to Github. You may work in a small group (2 or 3 people) on this assignment.  While you're never discouraged from adding features or advanced capabilities such as regularization and matrix factorization methods, it is not expected at this point in the course.   
 
+#####################################
+
+Our recommender system recommends movies based on content based recommendation system. It uses a m*n matrix with users as rows and movies as columns. Our function predicts the missing ratings for a movie based on the similar movies. Similarity of movies is calculated based on cosine of vectors method. It uses that cosine values as weights to the ratings of other movies to predict the missing ratings.
+
+We used a toy dataset to train our functions and used movie dataset downloaded from online to test the functions.
+
+We have also tested using Recommenderlab, which is one of the R packages. Even though our values were not matching exactly, we got values somewhat closer.
+
+
 
 ```{r}
 library(recommenderlab)
@@ -73,7 +82,8 @@ Implementing Item based recommender systems, like user based collaborative filte
 2. Predicting the targeted item rating for the targeted User.
 
 Step1: Calculating Item Similarity:
-we calculate the similarity between co-rated items. We use cosine similarity or pearson-similarity to compute the similarity between items. 
+we calculate the similarity between co-rated items. We use cosine similarity compute the similarity between items. 
+
 The output for step is similarity matrix between Items.
 
 
@@ -153,7 +163,7 @@ m[m==0] <- NA
 
 affinity.matrix<- as(m,"realRatingMatrix")
 Rec.model<-Recommender(affinity.matrix,method="IBCF", 
-                       param=list(normalize = "Z-score",method="Cosine", n=5))
+                       param=list(normalize = "Z-score",method="Cosine"))
 
 u <- predict(Rec.model, affinity.matrix[10,], type="ratings")
 as(u, "list")
