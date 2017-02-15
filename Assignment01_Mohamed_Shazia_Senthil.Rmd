@@ -1,0 +1,372 @@
+---
+title: "Assignment01"
+author: "Mohamed Elmoudni, Shazia Khan, Senthil Dhanapal"
+date: "February 12, 2017"
+output: html_document
+---
+
+## Project 1 : 
+
+Requirements:
+
+The goal of this assignment is to help you build your intuition about recommender systems, with a basic soup to nuts implementation coded "from scratch." 
+ 
+Your task is to build a very basic recommender system, first by writing your own functions, then by replacing those functions with those provided in an R Package or a Python library (such as scikitlearn). 
+ 
+ - You should very briefly first describe the recommender system that you're going to build out from a business perspective, e.g. "This system recommends movies to users." 
+ 
+ - You can find a dataset, or build out your own toy dataset and load into (for example) an R or pandas dataframe, a Python dictionary or list of lists, (or other data structure of your choosing). 
+
+ - You can use either collaborative filtering, or a hybrid of content management and collaborative filtering.   
+
+ - You are encouraged to hand code at least your similarity function. 
+ - After you have built out your own code base, create an alternate version using packages or libraries.  Compare the results and performance. 
+
+ - You are also encouraged to think about how to best handle missing data. 
+ 
+ - Your code should be turned in an RMarkdown file or a Jupyter notebook, and posted to Github. You may work in a small group (2 or 3 people) on this assignment.  While you're never discouraged from adding features or advanced capabilities such as regularization and matrix factorization methods, it is not expected at this point in the course.   
+
+### Description 
+
+Our recommender system recommends movies based on user based collaborative filtering (UBCF) and item based collaborative filtering (IBCF) recommendation system. It uses a m(x)n matrix with users as rows and movies as columns. Our function predicts the missing ratings for a movie based on the similar movies (IBCF) and user ratings (UBCF). Similarity of movies and users are calculated based on cosine, Jaccard, center-cosine (Pearson) methods. 
+
+We used a toy dataset to train and test our functions
+
+We have also tested using Recommenderlab, which is one of the R packages. Even though our values were not matching exactly, they are similar.
+
+
+
+```{r, warning=FALSE, message=FALSE}
+library(recommenderlab)
+library(reshape2)
+library(ggplot2)
+library(knitr)
+
+
+# Read training file along with the header
+dt<-read.csv("https://raw.githubusercontent.com/simonnyc/IS-643/master/Assignment01_data.csv", header=TRUE)
+
+
+
+
+```
+
+### Data Exploration
+
+```{r, warning=FALSE, message=FALSE}
+
+# Just look at first few lines of this file
+kable(head(dt))
+
+# Summary
+kable(summary(dt), caption ="Data Summary")
+
+#Frequency table
+
+kable(as.data.frame(table(dt$Ratings)), caption = "Ratings Frequency Table")
+
+qplot(dt$Ratings, dt$User)
+
+qplot(dt$Ratings)
+
+#[head(sort(dt$Ratings,decreasing=TRUE), n = 5)]
+
+#head(dt[sort(dt$Ratings, decreasing=TRUE), ], 100)
+
+```
+
+
+### Data Preparation
+
+```{r, warning=FALSE, message=FALSE}
+#step 1: item-similarity calculation co-rated items are considered and similarity between two items
+#are calculated using cosine similarity
+
+g<-acast(dt, User ~ Items, value.var = 'Ratings')
+#g[is.na(g)] = 0
+df<- data.frame(g)
+df$userno<- as.numeric(rownames(df))
+
+#re-arrange the columns
+library(dplyr)
+df <- df %>%
+  select(item_10:item_12, everything())
+
+df <- df %>%
+  select(item_1:item_9, everything())
+
+df <- df %>%
+  select(userno, everything())
+
+
+```
+
+
+Input Matrix
+
+```{r, warning=FALSE, message=FALSE}
+
+#### Input Matrix
+kable(df, caption= "Input Rating Matrix")
+
+image(as.matrix(df))
+
+
+```
+
+
+### IBCF Implementation
+
+Implementing Item based recommender systems, like user based collaborative filtering, requires two steps:
+
+1. Calculating Item similarities
+2. Predicting the targeted item rating for the targeted User.
+
+Step1: Calculating Item Similarity:
+we calculate the similarity between co-rated items. We use cosine similarity compute the similarity between items. 
+
+The output for step is similarity matrix between Items.
+
+#### Cosine similarity matrix for items
+
+```{r, warning=FALSE, message=FALSE}
+
+#install.packages("lsa")
+library(lsa)
+x = df[,2:ncol(df)]
+x[is.na(x)] = 0
+itemSimil = cosine(as.matrix(x))
+
+kable(itemSimil)
+```
+
+
+
+Step2: Predicting the targeted item rating for the targeted User using content based system
+
+
+```{r, warning=FALSE, message=FALSE}
+ratings<- as.matrix(x)
+userRecmd <- function(userno)
+{
+
+  userRatings <- ratings[userno,]
+  userRatings[userRatings==0] <- NA
+  #
+  
+  non_rated_items <- names(userRatings[is.na(userRatings)])
+  rated_items <- names(userRatings[!is.na(userRatings)])
+  m1 <- itemSimil[non_rated_items,]
+  v1 <- apply(m1,1,function(x) sum((x*ratings[userno,]),na.rm = T)/(sum(x[rated_items])))
+  #ratings[userno,names(v1)] <- v1
+  #
+
+  return(v1)
+}
+
+```
+
+####  Recommendation for User 10 using IBCF 
+
+Following line predicts the missing ratings for User 10  
+
+
+
+```{r, warning=FALSE, message=FALSE}
+kable(userRecmd(10), caption = "user 10, IBCF")
+```
+
+### UBCF Implementation
+
+User defined function for user based collobarative filtering
+
+```{r, warning=FALSE, message=FALSE}
+
+Recmd.UIB <- function(M, user, k)
+{
+  #M <- ratings
+  #user <- 'u10'
+  M[is.na(M)] <- 0
+  rowsums <- rowSums(M)
+  rowcounts <- apply(M,1,function(x) length(x[x>0]))
+  rowavg <- rowsums/rowcounts
+  for(r in 1:nrow(M))
+  {
+    for(c in 1:ncol(M))
+    {
+      if(M[r,c] >0 )
+      {
+        M[r,c] <- M[r,c] - rowavg[r]
+      }
+    }
+  }
+  
+  user.M <- M[user,]
+  if(is.element(0,user.M)==F) 
+  {
+    print('no missing ratings')
+    return()
+  }
+  
+  otherusers.M <- M[rownames(M)!=user,]
+  sim.M <- matrix(,nrow(otherusers.M))
+  rownames(sim.M) <- rownames(otherusers.M)
+  
+  for(r in 1:nrow(otherusers.M))
+  {
+    sim.user <- rownames(otherusers.M)[r]
+    sim.M[sim.user,1] <- cosine(user.M,otherusers.M[r,])
+  }
+  sim.M[is.na(sim.M)] <- -1
+  sim.M <- sim.M[order(-sim.M[,1]),,drop=F]
+  
+  non.rated.items <- names(user.M[user.M==0])
+  
+  #top k similar users who have rated the items not rated by the current user
+  if(k > nrow(sim.M)) 
+  {
+    k <- nrow(sim.M)
+  }
+  sim.user.k <- sim.M[1:k,,drop=F]
+  sim.user.k1 <- ratings[rownames(sim.user.k),non.rated.items,drop=F]
+  sim.user.k1 <- cbind(sim.user.k1,sim=sim.user.k)
+  colnames(sim.user.k1) <- c(non.rated.items,'sim')
+  sim.user.k2 <- matrix(,ncol=ncol(sim.user.k1))
+  for(r in 1:nrow(sim.user.k1))
+  {
+    v.temp <- sim.user.k1[r,,drop=F]
+    if(is.element(NA,v.temp)!=T)
+    {
+      sim.user.k2 <- rbind(sim.user.k2,v.temp)
+      
+    }
+  }
+  sim.user.k2 <- sim.user.k2[2:nrow(sim.user.k2),]
+  sim.user.k3 <- sim.user.k2[,1:ncol(sim.user.k2)-1]
+  sim.user.k4 <- sim.user.k2[,ncol(sim.user.k2),drop=F]
+  
+  v1 <- apply(sim.user.k3,2,function(x) sum(x*sim.user.k4)/sum(sim.user.k4))
+  return(v1)
+  
+  
+}
+
+
+```
+
+Prediction for same user 10 using User based collobarative filtering (UBCF)
+
+```{r}
+
+Recmd.UIB(ratings,'10',5)
+
+```
+
+
+Following lines predict the ratings for the user 10 using built-in package :- RecommenderLab package and using Item based collobarative filtering
+
+```{r, warning=FALSE, message=FALSE}
+
+m <- ratings
+m[m==0] <- NA
+
+affinity.matrix<- as(m,"realRatingMatrix")
+Rec.model<-Recommender(affinity.matrix,method="IBCF", 
+                       param=list(normalize = "Z-score",method="Cosine"))
+
+u <- predict(Rec.model, affinity.matrix[10,], type="ratings")
+as(u, "list")
+
+```
+
+
+### Using Recommnderlab package    
+
+Following lines predict the ratings for the user 10 using built-in package :- RecommenderLab package and using User based collobarative filtering
+
+
+
+Rating Matrix 
+
+```{r} 
+x = df[,2:ncol(df)]
+#x[is.na(x)] = 0
+x<- as.matrix(x)
+x <- as(x, "realRatingMatrix")
+kable(as(x, "matrix"))
+
+
+```
+
+
+UBCF using Cosine method
+
+
+```{r, warning=FALSE, message=FALSE}
+
+
+rec=Recommender(x[1:nrow(x)],method="UBCF", param=list(normalize = "Z-score",method="Cosine", nn=12))
+rec2 <- predict(rec, x[1:nrow(x)])
+
+kable(as(rec2, "matrix")['10',], caption = "UBCF using Cosine method")
+
+
+```
+
+
+
+
+UBCF using Jaccard method   \newline 
+
+
+
+```{r, warning=FALSE, message=FALSE}
+### Using 
+rec=Recommender(x[1:nrow(x)],method="UBCF", param=list(normalize = "Z-score",method="Jaccard", nn=5))
+rec2 <- predict(rec, x[1:nrow(x)])
+kable(as(rec2, "matrix")['10',], caption = "UBCF using Jaccard method")
+
+
+```
+
+
+
+
+IBCF using Cosine method    \newline
+
+
+
+
+
+```{r, warning=FALSE, message=FALSE}
+
+rec=Recommender(x[1:nrow(x)],method="IBCF", param=list(normalize = "Z-score",method="Cosine"))
+rec2 <- predict(rec, x[1:nrow(x)])
+kable(as(rec2, "matrix")['10',], caption = "IBCF using Cosine method")
+
+
+```
+
+
+
+### Conclusion 
+
+
+from the below comparaison table, most of the rating values are similar using different methods. However, we observed some outliers.
+For item7, the outlier value  0.7561378 is produced by user-defined UBCF-Pearson. 
+For item 10, the outlier value  1.384313 is produced by Recommender UBCF Cosine. 
+
+
+
+```{r, warning=FALSE, message=FALSE}
+
+dt_conc<-read.csv("https://raw.githubusercontent.com/simonnyc/IS-643/master/Proj01conclusion.csv", header=TRUE)
+
+kable(dt_conc, caption= "Recommendation for User 10")
+
+```
+
+
+
+
+
