@@ -1,0 +1,6 @@
+Method,Item 7,Item 10
+user-defined IBCF-Cosine,1.49148,1.5139
+Recommenderlab IBCF Cosine,1.542999,1.738512
+user-defined UBCF-Pearson,0.7561378,1.9112942
+Recommenderlab UBCF Cosine,1.385918,1.384313
+Recommenderlab UBCF Jaccard,1.371636,1.877474
