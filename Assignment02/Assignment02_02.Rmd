@@ -1,0 +1,145 @@
+---
+title: "Assignment 02"
+author: "Mohamed Elmoudni"
+date: "February 20, 2017"
+output: pdf_document
+---
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+
+
+if (!require("ggplot2",character.only = TRUE)) (install.packages("ggplot2",repos = "http://cran.us.r-project.org", dep=TRUE))
+if (!require("recommenderlab",character.only = TRUE)) (install.packages("ggplot2",repos = "http://cran.us.r-project.org", dep=TRUE))
+if (!require("reshape2",character.only = TRUE)) (install.packages("ggplot2",repos = "http://cran.us.r-project.org", dep=TRUE))
+if (!require("knitr",character.only = TRUE)) (install.packages("ggplot2",repos = "http://cran.us.r-project.org", dep=TRUE))
+
+library(recommenderlab)
+library(reshape2)
+library(ggplot2)
+library(knitr)
+
+```
+
+Data Load
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+
+path<- "https://raw.githubusercontent.com/simonnyc/IS-643/master/"
+# Read training file along with header
+tr<-read.csv(paste(path,"train_v3.csv", sep=""),header=TRUE)
+
+class(tr)
+
+
+```
+
+Data Exploration 
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+# Just look at first few lines of this file
+head(tr)
+tr[is.na(tr)] <- 0
+#head(tr)
+
+# Remove 'id' column. We do not need it
+tr<-tr[,-c(1)]
+head(tr)
+
+############
+kable(summary(tr), caption ="Data Summary")
+
+
+kable(as.data.frame(table(tr$rating)), caption = "Ratings Frequency Table")
+
+#qplot(tr$rating, tr$user)
+
+qplot(tr$rating)
+```
+
+
+Utility Matrix
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+
+#######################
+g<-acast(tr, user ~ movie, value.var= "rating")
+# Check the class of g
+class(g)
+
+
+# Convert it as a matrix
+R<-as.matrix(g)
+
+# Convert R into realRatingMatrix data structure
+
+r <- as(R, "realRatingMatrix")
+#slotNames(r)
+
+vector_ratings <- as.vector(r@data)
+unique(vector_ratings)
+
+# we will assume that a rating of 0 represents a missing value, so we can remove them from vector_ratings:
+vector_ratings <- vector_ratings[vector_ratings != 0]
+table_ratings <- table(vector_ratings)
+kable(data.frame(table_ratings))
+
+
+# Visualizing a sample 
+image(sample(r, 500), main = "Raw ratings")
+
+
+
+```
+
+Data visualization
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+##########################
+# Visualizing ratings
+qplot(getRatings(r), binwidth = 1, 
+      main = "Histogram of ratings", xlab = "Rating")
+
+summary(getRatings(r))
+
+###########################
+# How about after normalization... "It looks better" 
+qplot(getRatings(normalize(r, method = "Z-score")),
+      main = "Histogram of normalized ratings", xlab = "Rating") 
+summary(getRatings(normalize(r, method = "Z-score")))
+
+###############################
+
+# How many movies did people rate on average
+qplot(rowCounts(r), binwidth = 10, 
+      main = "Movies Rated on average", 
+      xlab = "# of users", 
+      ylab = "# of movies rated")
+
+
+###############
+
+
+# What is the mean rating of each movie
+qplot(colMeans(r), binwidth = .1, 
+      main = "Mean rating of Movies", 
+      xlab = "Rating", 
+      ylab = "# of movies")
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
