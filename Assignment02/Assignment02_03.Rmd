@@ -164,21 +164,21 @@ eval_sets <- evaluationScheme(data = ratings_movies, method = "split",
                               given = items_to_keep, 
                               goodRating =rating_threshold, k = 1) 
 
-eval_recommender_UBCF <- Recommender(data = getData(eval_sets, "train"),
+rec <- Recommender(data = getData(eval_sets, "train"),
                                 method = 'UBCF', 
                                 param=list(normalize = "Z-score",method="Cosine"))
 
-eval_prediction_UBCF <- predict(object = eval_recommender_UBCF, 
+pred <- predict(object = rec, 
                            newdata =getData(eval_sets, "known"), 
                            n = 10, type = "ratings")
 
-eval_accuracy_UBCF <- calcPredictionAccuracy(x = eval_prediction_UBCF, 
+acc <- calcPredictionAccuracy(x = pred, 
                                         data = getData(eval_sets, "unknown"), 
                                         byUser =TRUE)
 
-head(eval_accuracy_UBCF)
+head(acc)
 
-dfEvalSummary <- EvaluationSummary(eval_accuracy_UBCF,'UBCF')
+dfEvalSummary <- EvaluationSummary(acc,'UBCF')
 
 
 
@@ -189,21 +189,21 @@ dfEvalSummary <- EvaluationSummary(eval_accuracy_UBCF,'UBCF')
 IBCF
 ```{r}
 
-eval_recommender_IBCF <- Recommender(data = getData(eval_sets, "train"),
+rec <- Recommender(data = getData(eval_sets, "train"),
                                 method = 'IBCF', 
                                 param=list(normalize = "Z-score",method="Cosine"))
 
-eval_prediction_IBCF <- predict(object = eval_recommender_IBCF, 
+pred <- predict(object = rec, 
                            newdata =getData(eval_sets, "known"), 
                            n = 10, type = "ratings")
 
-eval_accuracy_IBCF <- calcPredictionAccuracy(x = eval_prediction_IBCF, 
+acc <- calcPredictionAccuracy(x = pred, 
                                         data = getData(eval_sets, "unknown"), 
                                         byUser =TRUE)
 
-head(eval_accuracy_IBCF)
+head(acc)
 
-dfEvalSummary <- cbind(dfEvalSummary,EvaluationSummary(eval_accuracy_IBCF,'IBCF'))
+dfEvalSummary <- cbind(dfEvalSummary,EvaluationSummary(acc,'IBCF'))
 
 ```
 
