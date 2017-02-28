@@ -1,0 +1,327 @@
+---
+title: "Assignment 02"
+author: "Mohamed Elmoudni"
+date: "February 20, 2017"
+output: pdf_document
+---
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+
+
+if (!require("ggplot2",character.only = TRUE)) (install.packages("ggplot2",repos = "http://cran.us.r-project.org", dep=TRUE))
+if (!require("recommenderlab",character.only = TRUE)) (install.packages("ggplot2",repos = "http://cran.us.r-project.org", dep=TRUE))
+if (!require("reshape2",character.only = TRUE)) (install.packages("ggplot2",repos = "http://cran.us.r-project.org", dep=TRUE))
+if (!require("knitr",character.only = TRUE)) (install.packages("ggplot2",repos = "http://cran.us.r-project.org", dep=TRUE))
+
+library(recommenderlab)
+library(reshape2)
+library(ggplot2)
+library(knitr)
+
+```
+
+Data Load
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+
+set.seed(1)
+data("MovieLense")
+
+
+```
+
+Data Exploration 
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+# Just look at first few lines of this file
+
+
+tr <- (as(MovieLense,'data.frame'))
+head(tr)
+
+############
+kable(summary(tr), caption ="Data Summary")
+
+
+kable(as.data.frame(table(tr$rating)), caption = "Ratings Frequency Table")
+
+#qplot(tr$rating, tr$user)
+
+qplot(tr$rating)
+```
+
+
+Utility Matrix
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+
+r <- MovieLense
+#slotNames(r)
+
+vector_ratings <- as.vector(r@data)
+unique(vector_ratings)
+
+# we will assume that a rating of 0 represents a missing value, so we can remove them from vector_ratings:
+vector_ratings <- vector_ratings[vector_ratings != 0]
+table_ratings <- table(vector_ratings)
+kable(data.frame(table_ratings))
+
+
+# Visualizing a sample 
+image(sample(r, 500), main = "Raw ratings")
+
+
+
+```
+
+Data visualization
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+##########################
+# Visualizing ratings
+qplot(getRatings(r), binwidth = 1, 
+      main = "Histogram of ratings", xlab = "Rating")
+
+summary(getRatings(r))
+
+###########################
+# How about after normalization... "It looks better" 
+qplot(getRatings(normalize(r, method = "Z-score")),
+      main = "Histogram of normalized ratings", xlab = "Rating") 
+summary(getRatings(normalize(r, method = "Z-score")))
+
+###############################
+
+# How many movies did people rate on average
+qplot(rowCounts(r), binwidth = 10, 
+      main = "Movies Rated on average", 
+      xlab = "# of users", 
+      ylab = "# of movies rated")
+
+
+###############
+
+
+# What is the mean rating of each movie
+qplot(colMeans(r), binwidth = .1, 
+      main = "Mean rating of Movies", 
+      xlab = "Rating", 
+      ylab = "# of movies")
+
+
+```
+
+
+
+Model Evaluation
+
+
+```{r}
+#df <- data.frame(name=character(),RMSE=numeric,MSE=numeric,MAE=numeric)
+
+
+EvaluationSummary <- function(acc_matrix, methodName)
+{
+  df1<-as.data.frame(apply(acc_matrix,2,mean,na.rm=T))
+  names(df1) <- methodName 
+  return(df1)
+}
+
+```
+
+Split dataset into Training and Testing
+```{r}
+
+ratings_movies <- MovieLense
+percentage_training <- 0.8
+items_to_keep <- 10
+rating_threshold <- 3
+eval_sets <- evaluationScheme(data = ratings_movies, method = "split",
+                              train = percentage_training, 
+                              given = items_to_keep, 
+                              goodRating =rating_threshold, k = NULL) 
+
+
+
+```
+
+
+UBCF
+```{r}
+
+rec <- Recommender(data = getData(eval_sets, "train"),
+                                method = 'UBCF', 
+                                param=list(normalize = "Z-score",method="Cosine"))
+
+pred <- predict(object = rec, 
+                           newdata =getData(eval_sets, "known"), 
+                           n = 10, type = "ratings")
+
+acc <- calcPredictionAccuracy(x = pred, 
+                                        data = getData(eval_sets, "unknown"), 
+                                        byUser =TRUE)
+
+head(acc)
+
+dfEvalSummary <- EvaluationSummary(acc,'UBCF-Cosine')
+
+
+
+
+
+```
+
+UBCF
+```{r}
+
+rec <- Recommender(data = getData(eval_sets, "train"),
+                                method = 'UBCF', 
+                                param=list(normalize = "Z-score",method="Jaccard"))
+
+pred <- predict(object = rec, 
+                           newdata =getData(eval_sets, "known"), 
+                           n = 10, type = "ratings")
+
+acc <- calcPredictionAccuracy(x = pred, 
+                                        data = getData(eval_sets, "unknown"), 
+                                        byUser =TRUE)
+
+head(acc)
+
+dfEvalSummary <- cbind(dfEvalSummary,EvaluationSummary(acc,'UBCF-Jaccard'))
+
+
+
+
+
+```
+
+UBCF
+```{r}
+
+rec <- Recommender(data = getData(eval_sets, "train"),
+                                method = 'UBCF', 
+                                param=list(normalize = "Z-score",method="Pearson"))
+
+pred <- predict(object = rec, 
+                           newdata =getData(eval_sets, "known"), 
+                           n = 10, type = "ratings")
+
+acc <- calcPredictionAccuracy(x = pred, 
+                                        data = getData(eval_sets, "unknown"), 
+                                        byUser =TRUE)
+
+head(acc)
+
+dfEvalSummary <- cbind(dfEvalSummary,EvaluationSummary(acc,'UBCF-Pearson'))
+
+
+
+
+
+```
+
+IBCF
+```{r}
+
+rec <- Recommender(data = getData(eval_sets, "train"),
+                                method = 'IBCF', 
+                                param=list(normalize = "Z-score",method="Cosine"))
+
+pred <- predict(object = rec, 
+                           newdata =getData(eval_sets, "known"), 
+                           n = 10, type = "ratings")
+
+acc <- calcPredictionAccuracy(x = pred, 
+                                        data = getData(eval_sets, "unknown"), 
+                                        byUser =TRUE)
+
+head(acc)
+
+dfEvalSummary <- cbind(dfEvalSummary,EvaluationSummary(acc,'IBCF-Cosine'))
+
+```
+
+IBCF
+```{r}
+
+rec <- Recommender(data = getData(eval_sets, "train"),
+                                method = 'IBCF', 
+                                param=list(normalize = "Z-score",method="Jaccard"))
+
+pred <- predict(object = rec, 
+                           newdata =getData(eval_sets, "known"), 
+                           n = 10, type = "ratings")
+
+acc <- calcPredictionAccuracy(x = pred, 
+                                        data = getData(eval_sets, "unknown"), 
+                                        byUser =TRUE)
+
+head(acc)
+
+dfEvalSummary <- cbind(dfEvalSummary,EvaluationSummary(acc,'IBCF-Jaccard'))
+
+```
+
+
+
+
+IBCF
+```{r}
+
+rec <- Recommender(data = getData(eval_sets, "train"),
+                                method = 'IBCF', 
+                                param=list(normalize = "Z-score",method="Pearson"))
+
+pred <- predict(object = rec, 
+                           newdata =getData(eval_sets, "known"), 
+                           n = 10, type = "ratings")
+
+acc <- calcPredictionAccuracy(x = pred, 
+                                        data = getData(eval_sets, "unknown"), 
+                                        byUser =TRUE)
+
+head(acc)
+
+dfEvalSummary <- cbind(dfEvalSummary,EvaluationSummary(acc,'IBCF-Pearson'))
+
+
+```
+
+Calculate Average of all Errors
+```{r}
+
+avg <- apply(as.matrix(dfEvalSummary),2,mean)
+
+df1 <- as.data.frame(t(avg))
+rownames(df1) <- 'AverageOfAllErrors'
+kable(rbind(dfEvalSummary,df1))
+
+```
+
+UBCF-Cosine shows the least average error for RMSE, MSE and MAE compared with other methods. So, UBCF-Cosine is the choosen method for recommendation
+
+Run the recommendation based on the best chosen method - UBCF-Cosine and show the result of one test user before and after prediction
+```{r}
+
+final_rec <- Recommender(data = MovieLense,
+                                method = 'UBCF', 
+                                param=list(normalize = "Z-score",method="Cosine"))
+
+pred <- predict(object = final_rec, newdata =MovieLense, n = 10, type = "ratings")
+
+m1 <- head(as(pred,'matrix'))
+m1 <- m1['2',2:4,drop=FALSE]
+
+m <- as(MovieLense,'matrix')
+m2 <- m['2',2:4,drop=FALSE]
+
+df2 <- rbind(as.data.frame(m2), as.data.frame(m1))
+rownames(df2) <- c('Before','After')
+kable(df2)
+
+```
+
