@@ -1,0 +1,228 @@
+---
+title: "DATA-643 Assignment - 03"
+author:
+- Mohamed Elmoudni
+- Shazia Khan
+- Senthil Dhanapal
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    toc: yes
+---
+
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+
+
+if (!require("ggplot2",character.only = TRUE)) (install.packages("ggplot2",repos = "http://cran.us.r-project.org", dep=TRUE))
+if (!require("recommenderlab",character.only = TRUE)) (install.packages("ggplot2",repos = "http://cran.us.r-project.org", dep=TRUE))
+if (!require("reshape2",character.only = TRUE)) (install.packages("ggplot2",repos = "http://cran.us.r-project.org", dep=TRUE))
+if (!require("knitr",character.only = TRUE)) (install.packages("ggplot2",repos = "http://cran.us.r-project.org", dep=TRUE))
+
+library(recommenderlab)
+library(reshape2)
+library(ggplot2)
+library(knitr)
+library(recommenderlab)
+library(recosystem)
+library(SlopeOne)
+library(SVDApproximation)
+library(data.table)
+library(RColorBrewer)
+library(ggplot2)
+
+```
+
+
+\newpage
+
+
+
+##1 Requirements:
+
+### Project 03
+
+The goal of this assignment is give you practice working with Singular Value Decomposition.
+Your task is implement a matrix factorization method-such as singular value decomposition (SVD) or Alternating Least Squares (ALS)-in the context of a recommender system.
+You may approach this in a large number of ways. You are welcome to start with an existing recommender system written by yourself or someone else (always citing your sources, so that you can be graded on what you added, not what you found).
+Here is one example. Suppose you start with (or create) a collaborative filtering system against (a subset of) the MovieLens database or our toy dataset. You could create a content-based system, where you populate your item profiles by pulling text information for specific movies from a source like imdb, applying text processing techniques (like TF-IDF), then using SVD and topic modeling to create a set of features derived from the text.
+An extra intermediate step could be to take text that was pre-classified, e.g. "fighting" or "singing" and build out two "explainable" features. SVD builds features that may or may not map neatly to movie genres or news topics.
+You may work in a small group (2 or 3 people) on this assignment.
+
+##2.Introduction 
+
+###Recommendation Using SVD \newline
+\
+
+The goal of CF-based recommendation algorithms is to suggest new products or to predict the utility of a product for a customer, based on the customer's previous behavior and other similar customers 'opinions. However, these systems have some problems like sparsity, scalability, and synonymy. 
+The weakness of CF algorithms for large, sparse databases led the researchers to alternative ways. 
+In order to remove noise data from a large and sparse database, some dimensionality reduction techniques are proposed. Latent Semantic Indexing (LSI), which is a dimensionality reduction technique that used in information retrieval (IR), is a widely used technique to reduce the dimensionality of user-item ratings matrix. LSI, which uses singular value decomposition (SVD) as its underlying dimension reduction algorithm, maps nicely into the collaborative filtering recommender algorithm challenge 
+
+#Toy Dataset 
+
+First let's show an example of dimension reduction, consider the <user, movie> rating matrix A
+
+```{r}
+
+User1 <- c(1, 5, 0, 5, 4)
+User2<- c(5, 4, 4, 3, 2)
+User3<- c(0, 4, 0, 0, 5)
+User4<- c(4, 4, 1, 4, 0)
+User5<- c(0, 4, 3, 5, 0)
+User6<- c(2, 4, 3, 5, 3 )
+
+A<- rbind(User1,User2, User3, User4, User5, User6)
+colnames(A)<- c("Movie1","Movie2", "Movie3", "Movie4", "Movie5")
+kable(A, caption = 'Original Matrix')
+
+```
+
+### Applying SVD to matrix A:
+
+```{r}
+A.svd <- svd(A)
+U<- matrix(A.svd$u,6,6)
+kable(U, caption = 'SVD, U Matrix')
+S<- diag(A.svd$d, 6,5)
+kable(S, caption = 'Diagonal Matrix, S')
+V_t<- t(A.svd$v)
+#V_t
+kable(V_t, caption = 'SVD, V transpose Matrix')
+
+```
+
+
+Matrix U (6x6), matrix S (6x5), and matrix V (5x5) are calculated. 
+Now, we will collapse this matrix from a (6x5) space into a 2-Dimensional one. 
+To do this, we simply take the first two columns of U, S and V. The end result
+
+```{r}
+a<- U[, c(1,2)]
+b<- S[, c(1,2)]
+c<- V_t[, c(2,2)]
+
+```
+
+
+For a recommender system based on SVD, here is one very simple strategy: find the most similar user using the 2-Dimensional matrixes above with one of the similarity calculation algorithms and compare his/her items against that of the new user; take the items that the similar user has rated and the new user has not and return them for the new user. Similar to this, for a new item, find the most similar item using the 2-Dimensional matrixes above with one of the similarity calculation algorithms and compare the users rated similar item against the new item; take the users that rate similar item but not the new item and return the ratings for the new item.
+
+## Testing 
+
+### Selecting k = 2
+
+```{r}
+svd <- svd(A,nu=2,nv=2)
+S <- diag(svd$d[1:2])
+kable(svd$u %*% S %*% t(svd$v),  caption = 'SVD for k =2')
+
+```
+
+New user with rating: 0,0,2,0,4
+
+```{r}
+b <-matrix(c(0,0,2,0,4,1),byrow=T, ncol=6)
+S1 <- diag(1/svd$d[1:2])
+b %*% svd$u %*% S1
+
+
+```
+
+### Selecting k = 3
+
+```{r}
+svd <- svd(A,nu=3,nv=3)
+S <- diag(svd$d[1:3])
+kable(svd$u %*% S %*% t(svd$v),  caption = 'SVD for k =3')
+
+```
+
+
+### New user with rating: 0,0,2,0,4
+
+```{r}
+b <-matrix(c(0,0,2,0,4,1),byrow=T, ncol=6)
+S1 <- diag(1/svd$d[1:3])
+b %*% svd$u %*% S1
+
+
+```
+
+
+# MovieLense dataset 
+
+Now that we have a basic understanding on how to apply SVD in our toy data, let's apply it in the to bigger set such the Movie Lens dataset.  
+We will be using the MovieLense dataset that comes with the recommenderlab package. 
+
+##2 Data Load \newline
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+
+set.seed(1)
+data("MovieLense")
+
+
+```
+
+
+
+#3 Data Exploration \newline
+
+
+In this phase we will perform data analysis and summary of the main characteristics of a dataset. We will be describing the data by means of statistical and visualization techniques
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+# Just look at first few lines of this file
+
+tr <- (as(MovieLense,'data.frame'))
+kable(head(tr))
+
+kable(summary(tr), caption ="Data Summary")
+
+kable(as.data.frame(table(tr$rating)), caption = "Ratings Frequency Table")
+
+#qplot(tr$rating, tr$user)
+
+qplot(tr$rating)
+```
+
+
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+
+#set.seed(1)
+mtx <- split_ratings(ratings_table = ratings, 
+               proportion = c(0.7, 0.15, 0.15))
+
+```
+
+##3.2 Data visualization
+
+```{r}
+
+visualize_ratings(ratings_table = ratings, color_palett = "Dark2")
+
+```
+
+
+
+#4 Model Evaluation
+```{r}
+
+model <- svd_build(mtx)
+
+```
+
+
+```{r}
+
+model_tunes <- svd_tune(model, r = 2:50)
+```
+
+
+```{r}
+model_tunes$train_vs_valid
+```
+
+
+
