@@ -279,7 +279,7 @@ From the results above, we clearly see that the performance of the model on the 
 \newpage
 
 #Appendix A: DATA643 Assignment 03 R Code 
-```{r code=readLines(knitr::purl('https://raw.githubusercontent.com/simonnyc/IS-643/master/Assignment02/Assignment02_Mohamed_Shazia_Senthil.Rmd', documentation = 0)), eval = FALSE}
+```{r code=readLines(knitr::purl('https://raw.githubusercontent.com/simonnyc/IS-643/master/Assignment03/Assignment03_Mohamed_Shazia_Senthil.Rmd', documentation = 0)), eval = FALSE}
 
 ```
 
