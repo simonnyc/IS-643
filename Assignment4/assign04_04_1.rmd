@@ -1,0 +1,226 @@
+---
+title: "DATA-643 Assignment - 04"
+author:
+- Mohamed Elmoudni
+- Shazia Khan
+- Senthil Dhanapal
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: 3
+  html_document:
+    toc: yes
+---
+
+
+## Requirements:
+
+### Project 04
+
+The goal of this assignment is to give you practice evaluating the performance of recommender systems. You only have to complete one of the two tasks.
+
+1. Using one of the recommender systems you already delivered, analyze the performance of how it works and see if you can make significant improvements. You should consider the computational expense (how much data you have in memory, how long it takes to run) and how accurate it is (RMSE, MAE). If your system delivers Top-N recommendations, you may want to assess accuracy by surveying friends and classmates on their user experience. 
+
+2. Adapt one of your recommendation systems to work with Apache Spark and compare the performance with your previous iteration. Consider the efficiency of the system and the added complexity of using Apache.
+
+
+
+## Introduction 
+
+We used Alternating Least Square Formulation for Recommender Systems with and without Spark, using MovieLense Dataset. We first implemented ALS using recommenderlab function, Recommender(), with method = "ALS". Then we implemented ALS in Spark using ml_als_factorization(). To assess the performance of recommender systems, with and without Spark, we used both RMSE and time taken to run code to compare.
+
+The root-mean-square error (RMSE) is a frequently used measure of the differences between values predicted by a model or an estimator and the values actually observed.
+
+
+## MovieLense Dataset 
+
+We will be using the MovieLense dataset that comes with the recommenderlab package. 
+
+## Data Preparation
+
+```{r}
+ratings_df <- read.csv("https://raw.githubusercontent.com/simonnyc/IS-643/master/train_v2.csv", head=T)
+
+head(ratings_df)
+ratings_df <- ratings_df[,2:4]
+colnames(ratings_df)[1:3] <- c("user","item","rating")
+
+
+```
+
+
+
+## Data Exploration
+```{r}
+
+```
+
+
+## Model 1 - Witout Spark ALS Recommender System
+
+
+### Description: Package: Recommenderlab,  Function: recommender(), Method = "ALS"
+
+
+
+### Preparation for Model 1
+
+```{r, warning=FALSE}
+library(recommenderlab)
+library(reshape2)
+
+ratings_wide <- dcast(ratings_df, user ~ item, value.var="rating")
+ratingsM <- as.matrix(ratings_wide)
+rownames(ratingsM) <- ratingsM[,1]
+ratingsM <- ratingsM[,-1]
+
+ratings_rRM <- as(ratingsM,'realRatingMatrix')
+
+
+```
+
+
+### Creation of Model 1
+
+```{r}
+
+
+start.time<- Sys.time()
+
+r <- Recommender(data = ratings_rRM[1:8,], method = "ALS", 
+                 parameter = list(normalize=NULL, lambda=0.1, n_factors=10, 
+                                  n_iterations=10, seed = NULL, verbose = FALSE)) 
+
+recom_ratings <- predict(r, newdata = ratings_rRM[9:10,], type = "ratings")
+#as(recom_ratings, "matrix")
+recom_topNList <- predict(r, newdata = ratings_rRM[9:10,], type = "topNList", n = 5)
+#as(recom_topNList, "list")
+
+end.time<-  Sys.time()
+
+
+```
+
+### RMSE for Model 1 
+```{r}
+
+#calcPredictionAccuracy(x, data, ...)
+
+```
+
+
+### Time Taken for Model 1 
+
+```{r}
+
+time.taken <- end.time - start.time
+time.taken
+
+```
+
+
+## Model 2 - With Spark ALS Recommender System
+
+### Description: Package: Sparklyr, Function: ml_als_factorization() 
+
+
+### Preparation for Model 2
+
+```{r,warning=F}
+
+#install.packages('sparklyr')
+#install.packages('dplyr')
+#spark_install(version = "1.6.2")
+
+library(sparklyr)
+library(dplyr)
+library(randomForest)
+library(magrittr)
+library(methods)
+
+
+```
+
+
+### Creating Model 2
+
+```{r}
+
+
+start.time<- Sys.time()
+
+# Sys.setenv(SPARK_HOME='C:/spark-1.6.2-bin-hadoop2.6')
+# 
+# Sys.unsetenv('SPARK_HOME')
+
+
+# LOCAL CONNECTION:
+#spark_install()
+#spark_disconnect_all()
+
+sc <- spark_connect(master = "local")
+
+#dim(ratings_df)
+#head(ratings_df)
+
+#iris_tbl <- copy_to(sc, iris)
+movie_rating <- copy_to(sc, ratings_df, overwrite = T)
+head(movie_rating)
+#library(recommenderlab)
+#model <- Recommender(y, method = "POPULAR", param=list(normalize = "center"))
+
+
+
+
+# model <- ml_als_factorization(iris_tbl, iter.max = 25, regularization.parameter = 0.01, 
+#                               implicit.preferences = TRUE, alpha = 1.0)
+
+# model <- ml_als_factorization(movie_rating, iter.max = 25, regularization.parameter = 0.01, 
+#                               implicit.preferences = TRUE, alpha = 1.0)
+
+model <- ml_als_factorization(movie_rating, rating.column = "rating", user.column = "user",
+                              item.column = "item", rank = 10L, regularization.parameter = 0.1,
+                              iter.max = 10L, ml.options = ml_options())
+
+summary(model)
+
+predictions <- model$.model %>%
+  invoke("transform", spark_dataframe(movie_rating)) %>%
+  collect()
+
+
+spark_disconnect(sc)
+
+end.time<-  Sys.time()
+
+
+```
+
+### RMSE for Model 2
+
+```{r}
+
+sqrt(mean(with(predictions, prediction-rating)^2))
+
+```
+
+### Time Taken for Model 2 
+```{r}
+
+time.taken <- end.time - start.time
+time.taken
+
+```
+
+
+
+
+# Conclusion
+
+From the results above, we clearly see that the performance of  model1 on the MovieLens dataset using ALS without spark is worse than  model2 using ALS with Spark.  The RMSE using ALS without SPArk is 'r ' while the RMSE with SPark is 'r '.  
+
+
+
+\newpage
+
+#Appendix A: DATA643 Assignment 04 R Code 
