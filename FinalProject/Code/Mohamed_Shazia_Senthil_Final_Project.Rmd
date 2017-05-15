@@ -1,0 +1,219 @@
+---
+title: "DATA-643, Final Project"
+author:
+- Mohamed Elmoudni
+- Shazia Khan
+- Senthil Dhanapal
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    toc: yes
+---
+
+## Introduction
+
+
+The goal of the project is to build a recommendation system for books based on user ratings.  A user is asked to rate a fixed number of books from our dataset and based on the user's rating for these selected books and ratings given to them by other individuals, our recommendation system recommends other books from our dataset that matches user's interest based on ratings. 
+
+
+## Data Exploration 
+
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+
+library(recommenderlab)
+library(cluster)
+library(knitr)
+
+setwd("C:/CUNY/Courses/IS-643/Final/data")
+
+
+users = read.csv("BX-Users.csv",sep = ";")
+books = read.csv("BX-Books.csv",sep = ";")
+rating = read.csv("Bx-Book-Ratings.csv",sep = ";",header = T)
+
+#str(rating)
+
+
+
+```
+
+### Data samples 
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+kable(head(users, 10), caption = "USERS")
+kable(head(books,10), caption = "BOOKS")
+kable(head(rating, 10), caption = "RATING")
+```
+
+
+### Data Fields
+
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+
+
+
+#str(users) # 140291 obs. of  3 variables, "User.ID"  "Location" "Age"  
+USERS1 <- data.frame(names(users))
+USERS1$USERS<- USERS1$names.users.
+USERS1$names.users.<- NULL
+kable(USERS1, caption = 'USERS Columns')
+#
+#str(books) # 115253 obs. of  8 variables
+#kable(names(books))
+
+BOOKS1 <- data.frame(names(books))
+BOOKS1$BOOKS<- BOOKS1$names.BOOKS.
+BOOKS1$names.BOOKS.<- NULL
+kable(BOOKS1, caption = 'BOOKS Columns')
+
+##
+
+#str(rating) # 493813 obs. of  3 variables:
+#kable(names(rating))
+
+RATING1 <- data.frame(names(rating))
+RATING1$RATING<- RATING1$names.RATING.
+RATING1$names.RATING.<- NULL
+kable(RATING1, caption = 'RATING  Columns')
+
+```
+
+### Plots 
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+ratings <- read.csv("C:/CUNY/Courses/IS-643/Final/data/Bx-Book-Ratings.csv", sep=";",header = T)
+
+
+ratings = subset(ratings,ratings$Rating > 0)
+RatingMatrix = as(rating,"realRatingMatrix")
+RatingMatrix = RatingMatrix[rowCounts(RatingMatrix)>10,colCounts(RatingMatrix)>10]
+
+```
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+
+hist(getRatings(RatingMatrix), breaks = 100, col = "blue", border = "pink", xlim= range(0:10),
+     main = "Ratings Distribution", xlab = 'rating ')
+
+hist(getRatings(normalize(RatingMatrix)), breaks = 100, col = "blue", border = "pink", xlim= range(-5:5),
+     main = "Ratings normalized Distribution", xlab = 'rating ')
+
+
+
+# We can get the values of how many books each user has rated and mean rating of each book
+
+
+
+hist(rowCounts(RatingMatrix), breaks = 100, col = "blue", border = "pink", 
+     main = "Books Long tail", xlab = 'books', ylab='popularity'
+                )
+
+```
+
+## Methods 
+
+- We used Sparklyr Package to interface with Spark 
+- We used the Alternating Least Squares (ALS) matrix factorization to reduce our rating matrix.
+- We used Collaborative Filtering.  
+
+
+\newpage
+## Data Preparation
+
+Our data preparation methodology follows the  below approach:
+
+
+![](https://raw.githubusercontent.com/simonnyc/IS-643/master/FinalProject/Code/P1.png)
+
+
+### Data Import and Cleansing  Process
+![](https://raw.githubusercontent.com/simonnyc/IS-643/master/FinalProject/Code/P2.png)
+
+\newpage
+
+ 
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+
+library(sparklyr)
+library(dplyr)
+library(randomForest)
+library(magrittr)
+library(methods)
+
+sc <- spark_connect(master = "local")
+
+ratings_df <- read.csv("C:/CUNY/Courses/IS-643/Final/Presentation/Senthil/BxBookRating.csv", head=T)
+ratings_df <- ratings_df[,c(1,3,4)]
+ratings_df <- ratings_df[,c('UserID','BookID','Rating')]
+colnames(ratings_df)[1:3] <- c("user","item","rating")
+
+
+
+
+book_rating <- copy_to(sc, ratings_df, overwrite = T)
+```
+
+
+## Model Creation
+
+Since our real rating matrix is a sparse matrix as it has 89890 rows and 212931 columns   with only 965290 ratings; which is about 0.00522 %, we chose to use collaborative filtering along with ALS for matrix factorization.  
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+model <- ml_als_factorization(book_rating, rating.column = "rating", user.column = "user",
+                              item.column = "item", rank = 10L, regularization.parameter = 0.1,
+                              iter.max = 10L, ml.options = ml_options())
+
+summary(model)
+```
+
+
+## Model Evaluation 
+
+We use RMSE (root mean square error) to evaluate our model against regularization 
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+predictions <- model$.model %>%
+  invoke("transform", spark_dataframe(book_rating)) %>%
+  collect()
+
+sqrt(mean(with(predictions, prediction-rating)^2))
+
+######### using learning rate of .2
+
+model <- ml_als_factorization(book_rating, rating.column = "rating", user.column = "user",
+                              item.column = "item", rank = 10L, regularization.parameter = 0.2,
+                              iter.max = 10L, ml.options = ml_options())
+
+predictions <- model$.model %>%
+  invoke("transform", spark_dataframe(book_rating)) %>%
+  collect()
+
+sqrt(mean(with(predictions, prediction-rating)^2))
+
+spark_disconnect(sc)
+
+```
+
+And with regularization learning rate of 0.1, our RMSE is  1.348361; however, with .2, our RMSE is 1.459424
+
+
+## Conclusion 
+
+The project presented a number of challenges. Given, the data size, we had to use Spark specifically Sparklyr package to process the data. All our non-Spark attempts failed and resulted in insufficient memory errors.   
+The data cleaning and preparation process was another challenge that took almost 60% of the project time. 
+Spark on Databricks  presented limited options as we could not load Recommenderlab package as it requires the latest version of R that Spark on Databricks did not provide. 
+Finally, in the positive note, the combination of ALS and Spark has delivered robust and fast solution that enabled us to successfully process a large dataset.  
+
+\newpage
+
+##Appendix A: DATA643 Final Project R Code 
+
+```{r code=readLines(knitr::purl('https://raw.githubusercontent.com/simonnyc/IS-643/master/FinalProject/Code/Mohamed_Shazia_Senthil_Final_Project.Rmd', documentation = 0)), eval = FALSE}
+
+
+```
+
+
