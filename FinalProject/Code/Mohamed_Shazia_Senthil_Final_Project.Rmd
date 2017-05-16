@@ -22,6 +22,8 @@ The goal of the project is to build a recommendation system for books based on u
 
 ```{r, echo = FALSE, warning=FALSE, message=FALSE}
 
+### Explore raw data 
+
 library(recommenderlab)
 library(cluster)
 library(knitr)
@@ -33,7 +35,6 @@ users = read.csv("BX-Users.csv",sep = ";")
 books = read.csv("BX-Books.csv",sep = ";")
 rating = read.csv("Bx-Book-Ratings.csv",sep = ";",header = T)
 
-#str(rating)
 
 
 
@@ -42,6 +43,9 @@ rating = read.csv("Bx-Book-Ratings.csv",sep = ";",header = T)
 ### Data samples 
 
 ```{r, echo = FALSE, warning=FALSE, message=FALSE}
+
+### Display raw data samples
+
 kable(head(users, 10), caption = "USERS")
 kable(head(books,10), caption = "BOOKS")
 kable(head(rating, 10), caption = "RATING")
@@ -53,6 +57,7 @@ kable(head(rating, 10), caption = "RATING")
 
 ```{r, echo = FALSE, warning=FALSE, message=FALSE}
 
+### Show columns from raw data 
 
 
 #str(users) # 140291 obs. of  3 variables, "User.ID"  "Location" "Age"  
@@ -60,19 +65,12 @@ USERS1 <- data.frame(names(users))
 USERS1$USERS<- USERS1$names.users.
 USERS1$names.users.<- NULL
 kable(USERS1, caption = 'USERS Columns')
-#
-#str(books) # 115253 obs. of  8 variables
-#kable(names(books))
 
 BOOKS1 <- data.frame(names(books))
 BOOKS1$BOOKS<- BOOKS1$names.BOOKS.
 BOOKS1$names.BOOKS.<- NULL
 kable(BOOKS1, caption = 'BOOKS Columns')
 
-##
-
-#str(rating) # 493813 obs. of  3 variables:
-#kable(names(rating))
 
 RATING1 <- data.frame(names(rating))
 RATING1$RATING<- RATING1$names.RATING.
@@ -84,6 +82,7 @@ kable(RATING1, caption = 'RATING  Columns')
 ### Plots 
 
 ```{r, echo = FALSE, warning=FALSE, message=FALSE}
+### Display Plots 
 ratings <- read.csv("C:/CUNY/Courses/IS-643/Final/data/Bx-Book-Ratings.csv", sep=";",header = T)
 
 
@@ -104,7 +103,6 @@ hist(getRatings(normalize(RatingMatrix)), breaks = 100, col = "blue", border = "
 
 
 # We can get the values of how many books each user has rated and mean rating of each book
-
 
 
 hist(rowCounts(RatingMatrix), breaks = 100, col = "blue", border = "pink", 
@@ -128,6 +126,7 @@ Our data preparation methodology follows the  below approach:
 
 ![](https://raw.githubusercontent.com/simonnyc/IS-643/master/FinalProject/Code/P1.png)
 
+\newpage
 
 ### Data Import and Cleansing  Process
 ![](https://raw.githubusercontent.com/simonnyc/IS-643/master/FinalProject/Code/P2.png)
@@ -136,6 +135,8 @@ Our data preparation methodology follows the  below approach:
 
  
 ```{r, echo = FALSE, warning=FALSE, message=FALSE}
+
+### Code for recommendation using cleansed dataset generated from raw data
 
 library(sparklyr)
 library(dplyr)
@@ -162,6 +163,9 @@ book_rating <- copy_to(sc, ratings_df, overwrite = T)
 Since our real rating matrix is a sparse matrix as it has 89890 rows and 212931 columns   with only 965290 ratings; which is about 0.00522 %, we chose to use collaborative filtering along with ALS for matrix factorization.  
 
 ```{r, echo = FALSE, warning=FALSE, message=FALSE}
+
+## Create the recommendation model using sparklyr using Alternate Least Square method
+
 model <- ml_als_factorization(book_rating, rating.column = "rating", user.column = "user",
                               item.column = "item", rank = 10L, regularization.parameter = 0.1,
                               iter.max = 10L, ml.options = ml_options())
@@ -175,6 +179,9 @@ summary(model)
 We use RMSE (root mean square error) to evaluate our model against regularization 
 
 ```{r, echo = FALSE, warning=FALSE, message=FALSE}
+
+## Evaluate model by predicting the ratings on the full dataset and compare the values using RMSE value
+
 predictions <- model$.model %>%
   invoke("transform", spark_dataframe(book_rating)) %>%
   collect()
@@ -182,6 +189,8 @@ predictions <- model$.model %>%
 sqrt(mean(with(predictions, prediction-rating)^2))
 
 ######### using learning rate of .2
+
+### Adjust the learning rate slightly to see if it increases or decreases RMSE
 
 model <- ml_als_factorization(book_rating, rating.column = "rating", user.column = "user",
                               item.column = "item", rank = 10L, regularization.parameter = 0.2,
