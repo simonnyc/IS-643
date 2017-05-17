@@ -298,7 +298,7 @@ Finally, in the positive note, the combination of ALS and Spark has delivered ro
 
 ##Appendix A: DATA643 Final Project R Code 
 
-```{r code=readLines(knitr::purl('https://raw.githubusercontent.com/simonnyc/IS-643/master/FinalProject/Code/Mohamed_Shazia_Senthil_Final_Project.Rmd', documentation = 0)), eval = FALSE}
+```{r code=readLines(knitr::purl('https://raw.githubusercontent.com/simonnyc/IS-643/master/FinalProject/Code/Submission/Mohamed_Shazia_Senthil_Final_Project.Rmd', documentation = 0)), eval = FALSE}
 
 
 ```
