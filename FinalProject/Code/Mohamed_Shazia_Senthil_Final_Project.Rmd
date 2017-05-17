@@ -166,6 +166,49 @@ Therefore, our data preparation methodology follows the  below approach:
 
 \newpage
 
+### SQL Code used for data cleansing and adding surrogate key. Added as comments.
+
+
+<!-- 
+
+alter table BXBook add BookID int not null identity(1,1)
+go
+
+delete BXBook
+where BookID in (
+	select max(BookID)
+	from BXBook
+	group by ISBN
+	having count(1) > 1
+	)
+
+create clustered index CDX on BXBook(ISBN)
+go
+
+create clustered index CDX on BXBookRating(ISBN)
+go
+
+Alter table BXBookRatings add BookID int
+go
+
+--update BXBookRatings
+--set ISBN = replace(replace(replace(replace(replace(REPLACE(ISBN, ' ', ''), '''', ''), '#', ''),'*',''),')',''),'+',')')
+--go
+
+update r
+set BookID = b.BookID
+from BXBookRating  as r 
+	join BXBook as b on b.ISBN = r.ISBN
+go
+
+
+select * from BXBookRating where BookID is null
+delete BXBookRating where BookID is null
+
+
+ --> 
+
+
  
 ```{r, echo = FALSE, warning=FALSE, message=FALSE}
 
