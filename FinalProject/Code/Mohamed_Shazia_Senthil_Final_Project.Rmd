@@ -11,10 +11,38 @@ output:
     toc: yes
 ---
 
+
 ## Introduction
+
+Recommendation systems are composed of filtering algorithms that aim to predict a rating a user would assign
+to a given item. Recommender systems have become increasingly important across many platforms such as movies (Netflix), restaurants (Yelp), friends (Facebook and Twitter), and music (Pandora and Spotify). 
+
+Our final project will be about recommending books based on user ratings. The dataset is called 
+Book-Crossings.  The dataset is a book ratings dataset compiled by Cai-Nicolas Ziegler based on data from bookcrossing.com. It contains 1.1 million ratings of 270,000 books by 90,000 users. The ratings are on a scale from 1 to 10.
+
+Our project plan will be based on the below high level steps:
+
+  1- Data acquisition \newline
+  2- Data Exploration and Preparation \newline
+  3- Model creation \newline
+  4- Model Selection \newline
+  5- Prediction \newline
+  6- Model tuning \newline
+
+
+
+## Purpose
 
 
 The goal of the project is to build a recommendation system for books based on user ratings.  A user is asked to rate a fixed number of books from our dataset and based on the user's rating for these selected books and ratings given to them by other individuals, our recommendation system recommends other books from our dataset that matches user's interest based on ratings. 
+
+## Data acquisition
+
+The dataset is a snapshot of www.BookCrossing.com. The motto of the site is "If you love your books, let them go!". The members of this website are located all over the world. A member registers their book and labels it and receives a book ID. The book is then shared with other members privately or publicly. The member can trace the book from one member to another and from one location to another as it travels around the world. The site mentions that at a given point they had 850,000 active users with seven million books which are traveling around 130 countries!
+  
+  a.	Data source Identification
+  b.	Data collection and storing
+  c.	Data merging 
 
 
 ## Data Exploration 
@@ -41,6 +69,7 @@ rating = read.csv("Bx-Book-Ratings.csv",sep = ";",header = T)
 ```
 
 ### Data samples 
+
 
 ```{r, echo = FALSE, warning=FALSE, message=FALSE}
 
@@ -119,9 +148,13 @@ hist(rowCounts(RatingMatrix), breaks = 100, col = "blue", border = "pink",
 
 
 \newpage
+
+
 ## Data Preparation
 
-Our data preparation methodology follows the  below approach:
+Looking at the data, there will be alot of cleaning and tidying to do before we can use it for creating to create models for recommender systems. The BX-Books.csv and BX-Ratings.csv files are properly delimited by semicolon and text is qualified by double quotes but the BX-Users.csv file does not seem to be in this format.The cell content is split into multiple columns as seen in the csv Excel format. We will have to make sure that all the users in ratings file are in users file just as we will check for books in ratings file are listed in book file.
+
+Therefore, our data preparation methodology follows the  below approach:
 
 
 ![](https://raw.githubusercontent.com/simonnyc/IS-643/master/FinalProject/Code/P1.png)
